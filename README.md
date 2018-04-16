@@ -1,0 +1,2 @@
+# squeeze
+SQL template manager
