@@ -1,6 +1,7 @@
 package squeeze
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,7 +20,17 @@ type ErrTemplateDefined struct {
 
 // Error implements the error interface
 func (e ErrTemplateDefined) Error() string {
-	return fmt.Sprintf("%s already defined, pls choose a different name", e.Name)
+	return fmt.Sprintf("%s already defined", e.Name)
+}
+
+// A ErrTemplateNotFound is returned when a template is not found be Parse
+type ErrTemplateNotFound struct {
+	Name string
+}
+
+// Error implements the error interface
+func (e ErrTemplateNotFound) Error() string {
+	return fmt.Sprintf("%s not found", e.Name)
 }
 
 // A Sourcer can Source templates and add them to the Store
@@ -70,6 +81,23 @@ func (s *Store) Add(name string, tpl *template.Template) error {
 	}
 	s.templates[name] = tpl
 	return nil
+}
+
+// Parse parses a template
+// foo.bar.list
+func (s *Store) Parse(path string, v interface{}) (string, error) {
+	var block string
+	parts := strings.Split(path, NamespaceSeperator)
+	block, parts = parts[len(parts)-1], parts[:len(parts)-1]
+	t, ok := s.templates[strings.Join(parts, NamespaceSeperator)]
+	if !ok {
+		return "", ErrTemplateNotFound{path}
+	}
+	var w = new(bytes.Buffer)
+	if err := t.ExecuteTemplate(w, block, v); err != nil {
+		return "", err
+	}
+	return w.String(), nil
 }
 
 // A DirectorySource adds SQL files to a store from a directory
