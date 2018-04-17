@@ -8,6 +8,9 @@ import (
 	"text/template"
 )
 
+// NamespaceSeperator seperates templates in different directories
+var NamespaceSeperator = "."
+
 // A ErrTemplateDefined is returned when a template of the same name already
 // exists in the Store
 type ErrTemplateDefined struct {
@@ -79,13 +82,13 @@ type DirectorySource struct {
 // match the Pattern in the Root and adding them to the Store
 func (d *DirectorySource) Source(store *Store) error {
 	rp := strings.Split(d.Root, string(os.PathSeparator))
-	for file := range walk(d.Root, d.Pattern) {
-		tpl, err := template.ParseFiles(file)
+	for dir := range walk(d.Root, d.Pattern) {
+		tpl, err := template.ParseGlob(filepath.Join(dir, "*.sql"))
 		if err != nil {
 			return err
 		}
-		fp := strings.Split(file, string(os.PathSeparator))
-		name := strings.Join(fp[len(rp):len(fp)-1], ".")
+		fp := strings.Split(dir, string(os.PathSeparator))
+		name := strings.Join(fp[len(rp):], NamespaceSeperator)
 		if err := store.Add(name, tpl); err != nil {
 			return err
 		}
@@ -112,8 +115,8 @@ func walk(path, pattern string) <-chan string {
 		}
 		if info.IsDir() {
 			files, _ := filepath.Glob(filepath.Join(path, "*.sql"))
-			for _, file := range files {
-				c <- file
+			if len(files) > 0 {
+				c <- path
 			}
 		}
 		return nil
