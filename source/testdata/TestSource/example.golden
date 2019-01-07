@@ -1,0 +1,3 @@
+SELECT *
+FROM "examples"
+WHERE id = $1
