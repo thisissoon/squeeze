@@ -3,8 +3,6 @@ package squeeze
 import (
 	"bytes"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"text/template"
 )
@@ -98,62 +96,6 @@ func (s *Store) Parse(path string, v interface{}) (string, error) {
 		return "", err
 	}
 	return w.String(), nil
-}
-
-// A DirectorySource adds SQL files to a store from a directory
-type DirectorySource struct {
-	Root    string
-	Pattern string
-}
-
-// Source implements the Sourcer interface parsing files that
-// match the Pattern in the Root and adding them to the Store
-func (d *DirectorySource) Source(store *Store) error {
-	rp := strings.Split(d.Root, string(os.PathSeparator))
-	for dir := range walk(d.Root, d.Pattern) {
-		tpl, err := template.ParseGlob(filepath.Join(dir, "*.sql"))
-		if err != nil {
-			return err
-		}
-		fp := strings.Split(dir, string(os.PathSeparator))
-		name := strings.Join(fp[len(rp):], NamespaceSeperator)
-		if err := store.Add(name, tpl); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Directory returns a DirectorySource to load SQL templates
-// from a directory
-func Directory(root string) *DirectorySource {
-	return &DirectorySource{
-		Root:    root,
-		Pattern: ".*sql",
-	}
-}
-
-// walk walks the path for files matching the pattern, returning
-// a channel of the matched file names
-func walk(path, pattern string) <-chan string {
-	c := make(chan string)
-	walker := func(path string, info os.FileInfo, e error) error {
-		if e != nil {
-			return e
-		}
-		if info.IsDir() {
-			files, _ := filepath.Glob(filepath.Join(path, "*.sql"))
-			if len(files) > 0 {
-				c <- path
-			}
-		}
-		return nil
-	}
-	go func() {
-		defer close(c)
-		filepath.Walk(path, walker)
-	}()
-	return (<-chan string)(c)
 }
 
 // String adds a template to the store from a raw SQL string
